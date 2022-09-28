@@ -1,0 +1,29 @@
+---
+title: "PSTAT 131 HW1"
+author: "AO XU"
+date: "2022-09-27"
+output: html_document
+---
+
+
+Machine Learning Main Ideas
+
+Problem1:
+  Supervised learning is a machine learning approach that’s defined by its use of labeled datasets.
+  Unsupervised learning uses machine learning algorithms to analyze and cluster unlabeled data sets.
+  The main distinction between the two approaches is the use of labeled datasets. To put it simply, supervised    learning uses labeled input and output data, while an unsupervised learning algorithm does not.
+
+Problem2:
+  While regression helps predict a continuous quantity, classification predicts discrete class labels.
+For Regression, Y is quantitative and numerical values; for Classification, Y is qualitative (From lecture slides).
+
+Problem3:
+
+Problem4:
+  Descriptive models: Choose model to best visually emphasize a trend in data;
+  Predictive models: Aim is to predict Y with minimum reducible error, and not focused on hypothesis tests;
+  Inferential models: Aim is to test theories, (Possibly) causal claims and State relationship between outcome & predictor(s)       (From lecture slides)
+  
+Problem5:
+  
+  
