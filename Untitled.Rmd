@@ -1,0 +1,34 @@
+---
+title: "Final Project Data Memo"
+author: "AO XU"
+date: "2022-10-03"
+output: html_document
+---
+
+- An overview of your dataset
+
+It includes U.S. Census Bureau and predcition to the population in the next 50 years.
+
+link:https://www.census.gov/
+
+50 obeservations (one per year), 50 predictors
+
+Numerical Variables
+
+Yes, I might need to find more resources to obtain a intact data.
+
+- An overview of your research question(s)
+
+Interest: the pupulation of the United States in the next 50 years
+
+Population
+
+Yes
+
+Population
+
+The goal is predictive since I need to make a prediction.
+
+Week 3: data loaded; Week5: begin data analysis
+
+No other question
