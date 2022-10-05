@@ -25,6 +25,10 @@ The full abalone data set is located in the `\data` subdirectory. Read it into *
 
 Make sure you load the `tidyverse` and `tidymodels`!
 
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
 ### Question 1
 
 Your goal is to predict abalone age, which is calculated as the number of rings plus 1.5. Notice there currently is no `age` variable in the data set. Add `age` to the data set.
@@ -57,6 +61,9 @@ Steps for your recipe:
 
 You'll need to investigate the `tidymodels` documentation to find the appropriate step functions to use.
 
+```{r}
+
+```
 ### Question 4
 
 Create and store a linear regression object using the `"lm"` engine.
