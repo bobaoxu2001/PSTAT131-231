@@ -2,7 +2,7 @@
 title: "Homework 2"
 author: "PSTAT 131/231"
 output:
-    html_document:
+    pdf_document:
       toc: true
       toc_float: true
       code_folding: show
