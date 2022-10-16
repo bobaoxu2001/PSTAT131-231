@@ -29,17 +29,36 @@ Make sure you load the `tidyverse` and `tidymodels`!
 library(tidyverse)
 library(tidymodels)
 ```
+
+```{r}
+abalone <- read_csv("abalone.csv")
+head(abalone)
+```
+
 ### Question 1
 
 Your goal is to predict abalone age, which is calculated as the number of rings plus 1.5. Notice there currently is no `age` variable in the data set. Add `age` to the data set.
 
 Assess and describe the distribution of `age`.
 
+```{r}
+abalone["age"] <- abalone["rings"]+1.5
+ggplot(abalone,aes(x=age))+geom_histogram(bins=30)
+```
+It presents a normal distribution, with a peak appears nearly at 11.
+
 ### Question 2
 
 Split the abalone data into a training set and a testing set. Use stratified sampling. You should decide on appropriate percentages for splitting the data.
 
 *Remember that you'll need to set a seed at the beginning of the document to reproduce your results.*
+```{r}
+set.seed(3000)
+abalone_split <- initial_split(abalone,prop=0.80,
+                             strata = age )
+abalone_train <- training(abalone_split)
+abalone_test <- testing(abalone_split)
+```
 
 ### Question 3
 
@@ -62,13 +81,35 @@ Steps for your recipe:
 You'll need to investigate the `tidymodels` documentation to find the appropriate step functions to use.
 
 ```{r}
-
+abalone_training<- abalone_train %>% select(-rings)
+abalone_recipe<-recipe(age ~ ., data=abalone_training) %>% 
+  step_dummy(all_nominal_predictors())
 ```
+
+```{r}
+abalone_mod<-abalone_recipe %>% 
+  step_interact(terms= ~ starts_with("type"):shucked_weight+
+                  longest_shell:diameter+
+                  shucked_weight:shell_weight) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors())
+
+summary(abalone_recipe)
+```
+
+We could not use rings to predict age since they have the strong relationship that age = rings + 1.5/
+
 ### Question 4
 
 Create and store a linear regression object using the `"lm"` engine.
 
+```{r}
+lm_model<-linear_reg() %>% 
+  set_engine("lm")
+```
+
 ### Question 5
+
 
 Now:
 
@@ -76,9 +117,28 @@ Now:
 2.  add the model you created in Question 4, and
 3.  add the recipe that you created in Question 3.
 
+```{r}
+lm_wflow<-workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(abalone_recipe)
+```
+
 ### Question 6
 
 Use your `fit()` object to predict the age of a hypothetical female abalone with longest_shell = 0.50, diameter = 0.10, height = 0.30, whole_weight = 4, shucked_weight = 1, viscera_weight = 2, shell_weight = 1.
+
+```{r}
+lm_fit<-fit(lm_wflow,abalone_training)
+female_abalone_age <- data.frame(type="F",
+                                 longest_shell=0.50,
+                                 diameter=0.10,
+                                 height=0.30, 
+                                 whole_weight=4,
+                                 shucked_weight=1,
+                                 viscera_weight=2,
+                                 shell_weight=1)
+predict(lm_fit,new_data=female_abalone_age)
+```
 
 ### Question 7
 
@@ -87,6 +147,18 @@ Now you want to assess your model's performance. To do this, use the `yardstick`
 1.  Create a metric set that includes *R^2^*, RMSE (root mean squared error), and MAE (mean absolute error).
 2.  Use `predict()` and `bind_cols()` to create a tibble of your model's predicted values from the **training data** along with the actual observed ages (these are needed to assess your model's performance).
 3.  Finally, apply your metric set to the tibble, report the results, and interpret the *R^2^* value.
+
+```{r}
+library(yardstick)
+abalone_train_res <- predict(lm_fit, new_data = abalone_training %>% select(-age))
+abalone_train_res <- bind_cols(abalone_train_res, abalone_training %>% select(age))
+abalone_train_res %>% 
+  head()
+abalone_metrics<-metric_set(rmse,rsq,mae)
+abalone_metrics(abalone_train_res, truth=age,
+                estimate=.pred)
+```
+R^2 is 0.533587, meaning they don't have strong relationship. 
 
 ### Required for 231 Students
 
@@ -106,9 +178,19 @@ where the underlying model $Y=f(X)+\epsilon$ satisfies the following:
 
 Which term(s) in the bias-variance tradeoff above represent the reproducible error? Which term(s) represent the irreducible error?
 
+$Var(\hat{f}(x_0))$ in the bias-variance tradeoff above represent the reproducible error.
+
+$Var(\epsilon)$ represent the irreducible error.
+
 #### Question 9
 
 Using the bias-variance tradeoff above, demonstrate that the expected test error is always at least as large as the irreducible error.
+
+From the Lecture notes, we could get that $\hat{f}(x_0)$ = $E[Y|X = x_o]$, then $E[(\hat{f}(x_0)-E\hat{f}(x_0))^2]$ = $[E[\hat{f}(x_0)]-f(x_0)]^2$ = 0
+
+Then, we could get that the reproducible error $Var(\hat{f}(x_0))$ = $[Bias(\hat{f}(x_0))]^2$ = 0
+
+However, $Var(\epsilon)$ is always bigger than or equal to 0, so the expected test error is always at least as large as the irreducible error.
 
 #### Question 10
 
@@ -118,3 +200,14 @@ Hints:
 
 -   use the definition of $Bias(\hat{f}(x_0))=E[\hat{f}(x_0)]-f(x_0)$;
 -   reorganize terms in the expected test error by adding and subtracting $E[\hat{f}(x_0)]$
+
+Since we know that $Bias(\hat{f}(x_0))$ = $E[\hat{f}(x_0)] - f(x_o)$, then we get $Bias(\hat{f}(x_0))^2$ = $(E[\hat{f}(x_0)] - f(x_o))^2$
+
+From the lecture notes, we can get that Y = f(X) + $\epsilon$ where f(X) is non-random and $\epsilon$ is zero-mean noise, so we could get that E($\epsilon$) = 0 and $E(f(X)) = f(X)$. So Var($\epsilon$) = E($\epsilon^2$) and $y_0$ in the bias-variance tradeoff function is f($x_0$) + $\epsilon$.
+
+$E[(y_0-\hat{f}(x_0))^2]$ = $E[({f}(x_0)+\epsilon-\hat{f}(x_0))^2]$ = $E[(f(x_0)-\hat{f}(x_0))^2]$ + $2E[f(x_0)-\hat{f}(x_0)]E[\epsilon]$ + $E[\epsilon^2]$
+
+Since $E[\epsilon]$ = 0 and Var($\epsilon$) = E($\epsilon^2$), then we get $E[(y_0-\hat{f}(x_0))^2]$ = $E[(f(x_0)-\hat{f}(x_0))^2]$ + Var($\epsilon$) = 
+$E[(f(x_0)-E[\hat{f}(x_0)] - (\hat{f}(x_0)-E[\hat{f}(x_0)]))^2]$ + Var($\epsilon$) = $E[(E[\hat{f}(x_0)]-f(x_0))^2] + E[(\hat{f}(x_0)-E[\hat{f}(x_0)])^2]$ - $2E[f(x_0)]-E[\hat{f}(x_0)])(\hat{f}(x_0)-E[\hat{f}(x_0)])]$ + Var($\epsilon$) = $(E[\hat{f}(x_0)]-f(x_0))^2$ + $E[(\hat{f}(x_0)-E[\hat{f}(x_0)])^2]$ - $2(f(x_0)-E[\hat{f}(x_0)])E[(\hat{f}(x_0)-E[\hat{f}(x_0)])]$ + Var($\epsilon$)= $(E[\hat{f}(x_0)]-f(x_0))^2$ + $E[(\hat{f}(x_0)-E[\hat{f}(x_0)])^2]$ + Var($\epsilon$) = $[bias(\hat{f}(x_0))]^2$ + $Var(\hat{f}(x_0))$ + Var($\epsilon$)
+
+Hence, the bias-variance tradeoff has been proved.
