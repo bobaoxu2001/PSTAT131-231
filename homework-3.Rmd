@@ -27,17 +27,7 @@ Make sure you load the `tidyverse` and `tidymodels`!
 
 *Remember that you'll need to set a seed at the beginning of the document to reproduce your results.*
 
-```{r}
-library(ggplot2)
-library(tidymodels)
-library(ISLR)  
-library(ISLR2) 
-library(discrim)
-library(poissonreg)
-library(corrr)
-library(klaR) 
-tidymodels_prefer()
-```
+
 ```{r}
 titanic <- read.csv("titanic.csv")
 head(titanic)
