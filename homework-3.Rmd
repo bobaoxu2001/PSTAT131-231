@@ -43,13 +43,12 @@ Split the data, stratifying on the outcome variable, `survived.`  You should cho
 Why is it a good idea to use stratified sampling for this data?
 
 ```{r}
-set.seed(1202)
-titanic_split<-initial_split(titanic,prop=0.80,
-                             strata = survived )
-titanic_train<-training(titanic_split)
-titanic_test<-testing(titanic_split)
-titanic_train
-titanic_test
+#set.seed(1202)
+#titanic_split<-initial_split(titanic,prop=0.80,strata = survived )
+#titanic_train<-training(titanic_split)
+#titanic_test<-testing(titanic_split)
+#titanic_train
+#titanic_test
 ```
 Using stratified sampling for this data can generate representations more accurately of the population.
 
@@ -58,7 +57,7 @@ Using stratified sampling for this data can generate representations more accura
 Using the **training** data set, explore/describe the distribution of the outcome variable `survived`.
 
 ```{r}
-ggplot(titanic_train,aes(x=survived))+geom_bar()
+#ggplot(titanic_train,aes(x=survived))+geom_bar()
 ```
 For the distribution of the outcome variable survived, the number of "no" is more than the number of "yes".
 
