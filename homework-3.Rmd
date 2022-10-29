@@ -273,6 +273,6 @@ If I increase $x_1$ by two, then the odds of the outcome would be $e^{\beta_0+\b
 
 p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$
 
-As $x_1$ approaches $\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 1
+As $x_1$ approaches $\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 0
 
-As $x_1$ approaches $-\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 0
+As $x_1$ approaches $-\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 1
