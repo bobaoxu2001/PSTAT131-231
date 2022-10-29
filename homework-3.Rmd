@@ -1,6 +1,6 @@
 ---
 title: "Homework 3"
-author: "PSTAT 131/231"
+author: "AO XU"
 output:
     html_document:
       toc: true
@@ -13,6 +13,17 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE,
                       warning = FALSE)
 ```
 
+```{r}
+library(ggplot2)
+library(tidymodels)
+library(ISLR)  
+library(ISLR2) 
+library(discrim)
+library(poissonreg)
+library(corrr)
+library(klaR) 
+tidymodels_prefer()
+```
 ## Classification
 
 For this assignment, we will be working with part of a [Kaggle data set](https://www.kaggle.com/c/titanic/overview) that was the subject of a machine learning competition and is often used for practicing ML models. The goal is classification; specifically, to predict which passengers would survive the [Titanic shipwreck](https://en.wikipedia.org/wiki/Titanic).
@@ -43,12 +54,11 @@ Split the data, stratifying on the outcome variable, `survived.`  You should cho
 Why is it a good idea to use stratified sampling for this data?
 
 ```{r}
-#set.seed(1202)
-#titanic_split<-initial_split(titanic,prop=0.80,strata = survived )
-#titanic_train<-training(titanic_split)
-#titanic_test<-testing(titanic_split)
-#titanic_train
-#titanic_test
+set.seed(1888)
+titanic_split<-initial_split(titanic,prop=0.80,
+                             strata = survived )
+titanic_train<-training(titanic_split)
+titanic_test<-testing(titanic_split)
 ```
 Using stratified sampling for this data can generate representations more accurately of the population.
 
@@ -57,8 +67,9 @@ Using stratified sampling for this data can generate representations more accura
 Using the **training** data set, explore/describe the distribution of the outcome variable `survived`.
 
 ```{r}
-#ggplot(titanic_train,aes(x=survived))+geom_bar()
+ggplot(titanic_train,aes(x=survived))+geom_bar()
 ```
+
 For the distribution of the outcome variable survived, the number of "no" is more than the number of "yes".
 
 ### Question 3
@@ -69,7 +80,7 @@ Using the **training** data set, create a correlation matrix of all continuous v
 cor_titanic <- titanic_train %>%
   select(is.numeric) %>%
   correlate()
-plot(cor_titanic)
+rplot(cor_titanic)
 ```
 (1) sib_sp and parch (2) term and sib_sp (3) term and parch (4) passenger_od and age (5) are positively correlated.
 
@@ -93,6 +104,7 @@ titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
   step_interact(terms= ~ starts_with("sex"):fare+
                   age:fare)
 titanic_recipe
+summary(titanic_recipe)
 ```
 ### Question 5
 
@@ -161,41 +173,30 @@ Use `predict()` and `bind_cols()` to generate predictions using each of these 4 
 
 Which model achieved the highest accuracy on the training data?
 ```{r}
-bind_titanic_train=bind_cols(predict(log_fit,new_data=titanic_train,type="class"),
-                             predict(lda_fit,new_data=titanic_train,type="class"),
-                             predict(qda_fit,new_data=titanic_train,type="class"),
-                             predict(nb_fit,new_data=titanic_train,type="class"),
-                             titanic_train$survived)
-```
-```{r}
-log_reg_acc <- augment(log_fit, new_data = titanic_train) %>%
+log_acc <- predict(log_fit, new_data = titanic_train, type = 'class') %>%
+  bind_cols(titanic_train %>% select(survived)) %>%
   accuracy(truth = survived, estimate = .pred_class)
-log_reg_acc
+log_acc
 ```
 ```{r}
-lda_acc <- augment(lda_fit, new_data = titanic_train) %>%
+lda_acc <- predict(lda_fit, new_data = titanic_train, type = 'class') %>% 
+  bind_cols(titanic_train %>% select(survived)) %>% 
   accuracy(truth = survived, estimate = .pred_class)
 lda_acc
 ```
 ```{r}
-qda_acc <- augment(qda_fit, new_data = titanic_train) %>%
+qda_acc <- predict(qda_fit, new_data = titanic_train, type = 'class') %>% 
+  bind_cols(titanic_train %>% select(survived)) %>% 
   accuracy(truth = survived, estimate = .pred_class)
 qda_acc
 ```
 ```{r}
-nb_acc <- augment(nb_fit, new_data = titanic_train) %>%
+nb_acc <- predict(nb_fit, new_data = titanic_train, type = 'class') %>% 
+  bind_cols(titanic_train %>% select(survived)) %>% 
   accuracy(truth = survived, estimate = .pred_class)
 nb_acc
 ```
-```{r}
-accuracies <- c(log_reg_acc$.estimate, lda_acc$.estimate, 
-                nb_acc$.estimate, qda_acc$.estimate)
-models <- c("Logistic Regression", "LDA", "Naive Bayes", "QDA")
-results <- tibble(accuracies = accuracies, models = models)
-results %>% 
-  arrange(-accuracies)
-```
-Logistic Regression model achieved the highest accuracy on the training data since 0.8103933 is higher than others.
+Logistic Regression model achieved the highest accuracy on the training data since 0.8089888 is higher than others.
 
 
 
@@ -209,9 +210,21 @@ How did the model perform? Compare its training and testing accuracies. If the v
 
 ```{r}
 predict(log_fit, new_data = titanic_test, type = "prob")
-augment(log_fit, new_data = titanic_test) %>%
-  conf_mat(truth = survived, estimate = .pred_class) 
 ```
+```{r}
+multi_metric <- metric_set(accuracy, sensitivity, specificity)
+
+augment(log_fit, new_data = titanic_test) %>%
+  multi_metric(truth = survived, estimate = .pred_class)
+```
+The accuracy is 0.7988827.
+
+```{r}
+augment(log_fit, new_data = titanic_train) %>%
+  conf_mat(truth = survived, estimate = .pred_class) %>%
+  autoplot(type = "heatmap")
+```
+
 ```{r}
 augment(log_fit, new_data = titanic_test) %>%
   roc_curve(survived, .pred_Yes) %>%
@@ -221,7 +234,7 @@ augment(log_fit, new_data = titanic_test) %>%
 augment(log_fit, new_data = titanic_test) %>%
   roc_auc(survived,.pred_Yes)
 ```
-The model performs fairly, but not very accurately. The value differ because the model is for the training accuracy.
+The model performs accurately. Training accuracy (0.8089888) is little higher than testing accuracy (0.7988827) The value differ might due to that training accuracy means that identical images are used both for training and testing, while test accuracy represents that the trained model identifies independent images that were not used in training.
 
 ### Required for 231 Students
 
@@ -240,9 +253,26 @@ Prove that the inverse of a logistic function is indeed the *logit* function:
 $$
 z(p)=ln\left(\frac{p}{1-p}\right)
 $$
+Proof:
+
+p(z) = $e^z \over 1+e^z$ $\Longrightarrow$ $p(z) (1+e^z)=e^z$ $\Longrightarrow$ $p(z) + p(z)e^z=e^z$ $\Longrightarrow$ $(1-p)e^z=p$ $\Longrightarrow$ $e^2=$${p}\over{1-p}$ $\Longrightarrow$ $z=ln($$p\over1-p$)
+
+Therefore, $z(p)=ln($$p\over1-p$).
 
 ### Question 12
 
 Assume that $z = \beta_0 + \beta_{1}x_{1}$ and $p = logistic(z)$. How do the odds of the outcome change if you increase $x_{1}$ by two? Demonstrate this.
 
 Assume now that $\beta_1$ is negative. What value does $p$ approach as $x_{1}$ approaches $\infty$? What value does $p$ approach as $x_{1}$ approaches $-\infty$?
+
+Solution:
+
+Odds: $e^{\beta_0+\beta_1x_1}$
+
+If I increase $x_1$ by two, then the odds of the outcome would be $e^{\beta_0+\beta_1(x_1+2)}$ = $e^{\beta_0+\beta_1x_1}e^2$, meaning that it would be $e^2$ times of original outcome.
+
+p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$
+
+As $x_1$ approaches $\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 1
+
+As $x_1$ approaches $-\infty$, p = ${e^{\beta_0 + \beta_1x_1} }\over {1+ e^{\beta_0 + \beta_1x_1}}$ = 0
