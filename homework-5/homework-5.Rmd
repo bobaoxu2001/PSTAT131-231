@@ -31,6 +31,17 @@ Read in the file and familiarize yourself with the variables using `pokemon_code
 
 Install and load the `janitor` package. Use its `clean_names()` function on the Pokémon data, and save the results to work with for the rest of the assignment. What happened to the data? Why do you think `clean_names()` is useful?
 
+```{r}
+#install.packages("janitor")
+library("janitor")
+pokemon<-read.csv('/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/homework-5/data/Pokemon.csv')
+pokemon_clean<-clean_names(pokemon)
+#pokemon_clean
+```
+Clean_names() helps to make the names in data unique, and only consist of the '_' character, numbers, and letters.
+
+I think it is useful since it removes redundancy.
+
 ### Exercise 2
 
 Using the entire data set, create a bar chart of the outcome variable, `type_1`.
@@ -41,11 +52,39 @@ For this assignment, we'll handle the rarer classes by simply filtering them out
 
 After filtering, convert `type_1` and `legendary` to factors.
 
+```{r}
+library(ggplot2)
+library(tidymodels)
+pokemon_clean %>% 
+  ggplot()+
+  geom_bar(aes(type_1))
+```
+There are 18 classes of the ourcome here. Yes, there is one Pokémon type with very few Pokémon - Flying.
+
+```{r}
+pokemon_clean2 <- filter(pokemon_clean,type_1 %in% c("Bug", "Fire", "Grass", "Normal", "Water", "Psychic")) %>% 
+  mutate(type_1 = factor(type_1),legendary = factor(legendary),generation = factor(generation))
+#pokemon_clean2
+```
+
 ### Exercise 3
 
 Perform an initial split of the data. Stratify by the outcome variable. You can choose a proportion to use. Verify that your training and test sets have the desired number of observations.
 
 Next, use *v*-fold cross-validation on the training set. Use 5 folds. Stratify the folds by `type_1` as well. *Hint: Look for a `strata` argument.* Why might stratifying the folds be useful?
+
+```{r}
+set.seed(3185)
+pokemon_clean2_split <- initial_split(pokemon_clean2, strata = type_1, prop=0.8)
+
+pokemon_train <- training(pokemon_clean2_split)
+pokemon_test <- testing(pokemon_clean2_split)
+
+v_fold <- vfold_cv(pokemon_train, v=5,strata = type_1)
+```
+It ensures the training and test sets have the same proportion of the feature of interest as in the original dataset. 
+
+Doing this with the target variable ensures that the cross-validation result is a close approximation of generalization error.
 
 ### Exercise 4
 
@@ -55,6 +94,15 @@ Set up a recipe to predict `type_1` with `legendary`, `generation`, `sp_atk`, `a
 
 - Center and scale all predictors.
 
+```{r}
+pokemon_recipe <- recipe(type_1 ~ legendary + generation + sp_atk +
+                           attack + speed + defense+hp+sp_def,
+                         data = pokemon_train) %>% 
+  step_dummy(legendary,generation) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors())
+```
+
 ### Exercise 5
 
 We'll be fitting and tuning an elastic net, tuning `penalty` and `mixture` (use `multinom_reg` with the `glmnet` engine).
@@ -63,15 +111,54 @@ Set up this model and workflow. Create a regular grid for `penalty` and `mixture
 
 How many total models will you be fitting when you fit these models to your folded data?
 
+```{r}
+pokemon_spec <- 
+  multinom_reg(penalty = tune(), mixture = tune()) %>% 
+  set_engine("glmnet")
+
+pokemon_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(pokemon_spec)
+
+pokemon_grid <- grid_regular(penalty(range = c(-5, 5)), mixture(range=c(0,1)),
+                             levels = 10)
+pokemon_grid
+```
+500 models will be fitting when I fit these models to my folded data.
+
 ### Exercise 6
 
 Fit the models to your folded data using `tune_grid()`.
 
 Use `autoplot()` on the results. What do you notice? Do larger or smaller values of `penalty` and `mixture` produce better accuracy and ROC AUC?
 
+```{r}
+library(glmnet)
+library(compiler)
+tune_res <- tune_grid(
+  object = pokemon_workflow, 
+  resamples = v_fold, 
+  grid = pokemon_grid
+)
+```
+
+```{r}
+autoplot(tune_res)
+```
+Smaller values of penalty and mixture produce better accuracy and ROC AUC.
+
 ### Exercise 7
 
 Use `select_best()` to choose the model that has the optimal `roc_auc`. Then use `finalize_workflow()`, `fit()`, and `augment()` to fit the model to the training set and evaluate its performance on the testing set.
+
+```{r}
+best_roc_auc <- select_best(tune_res,metric = "roc_auc") 
+pokemon_final <- finalize_workflow(pokemon_workflow,best_roc_auc) 
+pokemon_final_fit <- fit(pokemon_final,data=pokemon_train) 
+augment(pokemon_final_fit, new_data = pokemon_test) %>%
+  accuracy(truth = type_1, estimate = .pred_class)
+```
+
 
 ### Exercise 8
 
@@ -81,9 +168,52 @@ Then create plots of the different ROC curves, one per level of the outcome. Als
 
 What do you notice? How did your model do? Which Pokemon types is the model best at predicting, and which is it worst at? Do you have any ideas why this might be?
 
+
+```{r}
+augment(pokemon_final_fit,new_data=pokemon_test)%>%
+  roc_auc(type_1,.pred_Bug,.pred_Fire,.pred_Grass,.pred_Normal,.pred_Water,.pred_Psychic)
+augment(pokemon_final_fit,new_data=pokemon_test)%>%
+  roc_curve(type_1,.pred_Bug,.pred_Fire,.pred_Grass,.pred_Normal,.pred_Water,.pred_Psychic)%>%
+  autoplot()
+```
+```{r}
+augment(pokemon_final_fit,new_data=pokemon_test)%>%conf_mat(
+  truth=type_1,.pred_class)%>%
+  autoplot(type="heatmap")
+```
+The overall ROC AUC is 0.6172083.
+
+The model is not well enough since the overall accuracy is 0.3404255. 
+
+The type "Normal" is  best at predicting because its curve has the largest area below the ROC curve. 
+
+The type "Water" is worst at predicting because its curve has the smallest area below the ROC curve. 
+
+This is might because type_2 would influence. 	
+
 ## For 231 Students
 
 ### Exercise 9
 
 In the 2020-2021 season, Stephen Curry, an NBA basketball player, made 337 out of 801 three point shot attempts (42.1%). Use bootstrap resampling on a sequence of 337 1’s (makes) and 464 0’s (misses). For each bootstrap sample, compute and save the sample mean (e.g. bootstrap FG% for the player). Use 1000 bootstrap samples to plot a histogram of those values. Compute the 99% bootstrap confidence interval for Stephen Curry’s “true” end-of-season
 FG% using the quantile function in R. Print the endpoints of this interval.
+
+```{r}
+library(boot)
+set.seed(685)
+shot <- c(rep(1,337),rep(0,464))
+boot_mean <- function(original_vector, resample_vector) {
+    mean(original_vector[resample_vector])
+}
+shot_boot <- boot(shot,boot_mean,R=1000)
+Conf_Interval <- boot.ci(shot_boot,conf = 0.99)
+
+
+hist(shot_boot$t,freq = F)
+lines(density(shot_boot$t), col="red")
+```
+```{r}
+Conf_Interval$normal
+```
+
+Therefore, the confidence interval is (0.3734602, 0.4667246).
