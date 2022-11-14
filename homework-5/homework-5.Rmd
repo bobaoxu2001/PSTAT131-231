@@ -202,7 +202,7 @@ FG% using the quantile function in R. Print the endpoints of this interval.
 library(boot)
 set.seed(685)
 shot <- c(rep(1,337),rep(0,464))
-boot_mean <- function(original_vector, resample_vector) {
+mean <- function(original_vector, resample_vector) {
     mean(original_vector[resample_vector])
 }
 shot_boot <- boot(shot,boot_mean,R=1000)
