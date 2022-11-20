@@ -1,31 +1,9 @@
 ---
-title: "Homework 5"
-author: "PSTAT 131/231"
-output:
-    html_document:
-      toc: true
-      toc_float: true
-      code_folding: show
+title: "pstat231_hw5_aoxu"
+author: "AO XU"
+date: "2022-11-20"
+output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE,
-                      warning = FALSE)
-```
-
-## Elastic Net Tuning
-
-For this assignment, we will be working with the file `"pokemon.csv"`, found in `/data`. The file is from Kaggle: <https://www.kaggle.com/abcsds/pokemon>.
-
-The [Pokémon](https://www.pokemon.com/us/) franchise encompasses video games, TV shows, movies, books, and a card game. This data set was drawn from the video game series and contains statistics about 721 Pokémon, or "pocket monsters." In Pokémon games, the user plays as a trainer who collects, trades, and battles Pokémon to (a) collect all the Pokémon and (b) become the champion Pokémon trainer.
-
-Each Pokémon has a [primary type](https://bulbapedia.bulbagarden.net/wiki/Type) (some even have secondary types). Based on their type, a Pokémon is strong against some types, and vulnerable to others. (Think rock, paper, scissors.) A Fire-type Pokémon, for example, is vulnerable to Water-type Pokémon, but strong against Grass-type.
-
-![Fig 1. Vulpix, a Fire-type fox Pokémon from Generation 1.](images/vulpix.png){width="196"}
-
-The goal of this assignment is to build a statistical learning model that can predict the **primary type** of a Pokémon based on its generation, legendary status, and six battle statistics.
-
-Read in the file and familiarize yourself with the variables using `pokemon_codebook.txt`.
 
 ### Exercise 1
 
@@ -38,6 +16,7 @@ pokemon<-read.csv('/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/homework-5/d
 pokemon_clean <- clean_names(pokemon)
 #pokemon_clean
 ```
+
 Clean_names() helps to make the names in data unique, and only consist of the '_' character, numbers, and letters.
 
 I think it is useful since it removes redundancy.
@@ -59,6 +38,7 @@ pokemon_clean %>%
   ggplot()+
   geom_bar(aes(type_1))
 ```
+
 There are 18 classes of the ourcome here. Yes, there is one Pokémon type with very few Pokémon - Flying.
 
 ```{r}
@@ -66,6 +46,7 @@ pokemon_clean2 <- filter(pokemon_clean,type_1 %in% c("Bug", "Fire", "Grass", "No
   mutate(type_1 = factor(type_1),legendary = factor(legendary),generation = factor(generation))
 #pokemon_clean2
 ```
+
 
 ### Exercise 3
 
@@ -122,8 +103,9 @@ pokemon_workflow <- workflow() %>%
 
 pokemon_grid <- grid_regular(penalty(range = c(-5, 5)), mixture(range=c(0,1)),
                              levels = 10)
-#pokemon_grid
+pokemon_grid
 ```
+
 500 models will be fitting when I fit these models to my folded data.
 
 ### Exercise 6
@@ -145,6 +127,7 @@ tune_res <- tune_grid(
 ```{r}
 autoplot(tune_res)
 ```
+
 Smaller values of penalty and mixture produce better accuracy and ROC AUC.
 
 ### Exercise 7
@@ -158,8 +141,6 @@ pokemon_final_fit <- fit(pokemon_final,data=pokemon_train)
 augment(pokemon_final_fit, new_data = pokemon_test) %>%
   accuracy(truth = type_1, estimate = .pred_class)
 ```
-
-
 ### Exercise 8
 
 Calculate the overall ROC AUC on the testing set.
@@ -176,16 +157,18 @@ augment(pokemon_final_fit,new_data=pokemon_test)%>%
   roc_curve(type_1,.pred_Bug,.pred_Fire,.pred_Grass,.pred_Normal,.pred_Water,.pred_Psychic)%>%
   autoplot()
 ```
+
 ```{r}
 augment(pokemon_final_fit,new_data=pokemon_test)%>%conf_mat(
   truth=type_1,.pred_class)%>%
   autoplot(type="heatmap")
 ```
-The overall ROC AUC is 0.6574256.
 
-The model is not well enough since the overall accuracy is 0.3723404. 
+The overall ROC AUC is 0.6172083.
 
-The type "Normal" is best at predicting because its curve has the largest area below the ROC curve. 
+The model is not well enough since the overall accuracy is 0.3404255. 
+
+The type "Normal" is  best at predicting because its curve has the largest area below the ROC curve. 
 
 The type "Water" is worst at predicting because its curve has the smallest area below the ROC curve. 
 
@@ -199,7 +182,6 @@ In the 2020-2021 season, Stephen Curry, an NBA basketball player, made 337 out o
 FG% using the quantile function in R. Print the endpoints of this interval.
 
 ```{r}
-install.packages(boot)
 library(boot)
 set.seed(333)
 shot <- c(rep(1,337),rep(0,464))
@@ -207,6 +189,8 @@ boot_mean <- function(original_vector, resample_vector) {
     mean(original_vector[resample_vector])
 }
 shot_boot <- boot(shot,boot_mean,R=1000)
+```
+```{r}
 Conf_Interval <- boot.ci(shot_boot,conf = 0.99)
 
 
@@ -214,5 +198,3 @@ hist(shot_boot$t,freq = F)
 lines(density(shot_boot$t), col="red")
 ```
 
-
-Therefore, the confidence interval is (0.3734602, 0.4667246).
