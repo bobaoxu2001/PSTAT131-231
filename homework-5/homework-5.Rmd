@@ -122,7 +122,7 @@ pokemon_workflow <- workflow() %>%
 
 pokemon_grid <- grid_regular(penalty(range = c(-5, 5)), mixture(range=c(0,1)),
                              levels = 10)
-#pokemon_grid
+pokemon_grid
 ```
 500 models will be fitting when I fit these models to my folded data.
 
@@ -199,20 +199,22 @@ In the 2020-2021 season, Stephen Curry, an NBA basketball player, made 337 out o
 FG% using the quantile function in R. Print the endpoints of this interval.
 
 ```{r}
-install.packages(boot)
+#install.packages(boot)
 library(boot)
 set.seed(333)
 shot <- c(rep(1,337),rep(0,464))
-boot_mean <- function(original_vector, resample_vector) {
+BootMean <- function(original_vector, resample_vector) {
     mean(original_vector[resample_vector])
 }
-shot_boot <- boot(shot,boot_mean,R=1000)
-Conf_Interval <- boot.ci(shot_boot,conf = 0.99)
+ShotBoot <- boot(shot,BootMean,R=1000)
+Conf_Interval <- boot.ci(ShotBoot,conf = 0.99)
 
-
-hist(shot_boot$t,freq = F)
-lines(density(shot_boot$t), col="red")
+hist(ShotBoot$t,freq = F)
+lines(density(ShotBoot$t), col="red")
+```
+```{r}
+Conf_Interval$normal
 ```
 
 
-Therefore, the confidence interval is (0.3734602, 0.4667246).
+Therefore, the 99% confidence interval is (0.375549,0.4650527).
