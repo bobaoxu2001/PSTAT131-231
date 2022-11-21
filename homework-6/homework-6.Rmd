@@ -133,14 +133,15 @@ arrange(tune_res)
 best <- select_best(tune_res)
 best
 ```
-My best-performing pruned decision is model 7, the mean of roc_au is 0.6611068 which is the highest.
+My best-performing pruned decision is model 5, the mean of roc_au is 0.6160667 which is the highest.
 
 ### Exercise 5
 
 Using `rpart.plot`, fit and visualize your best-performing pruned decision tree with the *training* set.
 
 ```{r}
-class_tree_final <- finalize_workflow(tree_workflow,best_complexity)
+library(rpart.plot)
+class_tree_final <- finalize_workflow(tree_workflow,best)
 class_tree_final_fit<-fit(class_tree_final,data=pokemon_train)
 class_tree_final_fit %>%
   extract_fit_engine() %>%
@@ -170,12 +171,15 @@ param_grid2<-grid_regular(mtry(range = c(1, 8)),
 param_grid2
 ```
 
-Mtry is number of predictors randomly sampled at each split when creating the tree models. 
+Mtry is number of predictors.
 
 Trees is the number of trees. 
 
-Min_n is integer for the minimum number of data points in a node that are required for the node to be split further.
+Min_n is integer for the minimum number of data points.
 
+`mtry` should not be smaller than 1 or larger than 8 since there is at least one predictor but at most 8 predictors.
+
+If `mtry` = 8, then it means that all predictors are used.
 
 
 ### Exercise 6
@@ -196,6 +200,13 @@ autoplot(tune_res_forest)
 ### Exercise 7
 
 What is the `roc_auc` of your best-performing random forest model on the folds? *Hint: Use `collect_metrics()` and `arrange()`.*
+
+```{r}
+collect_metrics(tune_res_forest)
+arrange(tune_res_forest)
+best_complexity2<-select_best(tune_res_forest)
+best_complexity2
+```
 
 ### Exercise 8
 
