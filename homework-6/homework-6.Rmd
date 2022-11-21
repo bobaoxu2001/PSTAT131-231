@@ -27,6 +27,18 @@ The goal of this assignment is to build a statistical learning model that can pr
 
 **Note: Fitting ensemble tree-based models can take a little while to run. Consider running your models outside of the .Rmd, storing the results, and loading them in your .Rmd to minimize time to knit.**
 
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(ISLR)
+library(vip)
+library(janitor)
+library(randomForest)
+library(xgboost)
+library(ggplot2)
+library(corrr)
+```
+
 ### Exercise 1
 
 Read in the data and set things up as in Homework 5:
@@ -44,11 +56,43 @@ Set up a recipe to predict `type_1` with `legendary`, `generation`, `sp_atk`, `a
 - Dummy-code `legendary` and `generation`;
 - Center and scale all predictors.
 
+```{r}
+pokemon<-read.csv("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/homework-6/data/Pokemon.csv")
+pokemon<-clean_names(pokemon)
+
+pokemon<-pokemon %>%
+  filter(type_1 %in% c("Bug","Fire","Grass","Normal","Water","Psychic"))
+pokemon$type_1<-factor(pokemon$type_1)
+pokemon$legendary<-factor(pokemon$legendary)
+
+pokemon_split <- initial_split(pokemon, prop = 0.80, strata = type_1)
+pokemon_train <- training(pokemon_split)
+pokemon_test <- testing(pokemon_split)
+
+pokemon_folds <- vfold_cv(pokemon_train, v = 5, strata=type_1)
+pokemon_recipe <- recipe(type_1 ~ legendary + generation + sp_atk + attack + speed + defense + hp + sp_def,
+                         data = pokemon_train) %>% 
+  step_dummy(legendary,generation) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors())
+```
+
 ### Exercise 2
 
 Create a correlation matrix of the training set, using the `corrplot` package. *Note: You can choose how to handle the continuous variables for this plot; justify your decision(s).*
 
 What relationships, if any, do you notice? Do these relationships make sense to you?
+
+```{r}
+library(corrplot)
+cor_pokemon_train <- pokemon_train %>%
+  select(where(is.numeric)) %>%
+  cor(use = "pairwise.complete.obs", method = "pearson")
+corrplot.mixed(cor_pokemon_train)
+```
+I notice that total and sp_atk have the highest-correlated relationship while defense and speed have the lowest-correlated relatinship.
+
+Not really, I am wondering why (1) attack and total (2) sp_atk and total  are highly-correlated but attack and sp_atk are not highly-correaletd.
 
 ### Exercise 3
 
@@ -56,23 +100,98 @@ First, set up a decision tree model and workflow. Tune the `cost_complexity` hyp
 
 Print an `autoplot()` of the results. What do you observe? Does a single decision tree perform better with a smaller or larger complexity penalty?
 
+```{r}
+tree_spec<-decision_tree() %>%
+  set_engine("rpart")
+class_tree_spec<-tree_spec %>%
+  set_mode("classification")
+
+tree_workflow<-workflow() %>%
+  add_model(class_tree_spec %>% set_args(cost_complexity=tune())) %>%
+  add_recipe(pokemon_recipe)
+
+set.seed(2888)
+pokemon_folds <- vfold_cv(pokemon_train)
+param_grid <- grid_regular(cost_complexity(range = c(-3, -1)),levels=10)
+
+tune_res <- tune_grid(
+  tree_workflow,
+  resamples=pokemon_folds,
+  grid=param_grid,
+  metrics=metric_set(roc_auc)
+)
+autoplot(tune_res)
+```
+
 ### Exercise 4
 
 What is the `roc_auc` of your best-performing pruned decision tree on the folds? *Hint: Use `collect_metrics()` and `arrange()`.*
+
+```{r}
+collect_metrics(tune_res)
+arrange(tune_res)
+best <- select_best(tune_res)
+best
+```
+My best-performing pruned decision is model 7, the mean of roc_au is 0.6611068 which is the highest.
 
 ### Exercise 5
 
 Using `rpart.plot`, fit and visualize your best-performing pruned decision tree with the *training* set.
 
+```{r}
+class_tree_final <- finalize_workflow(tree_workflow,best_complexity)
+class_tree_final_fit<-fit(class_tree_final,data=pokemon_train)
+class_tree_final_fit %>%
+  extract_fit_engine() %>%
+  rpart.plot()
+```
 ### Exercise 5
 
 Now set up a random forest model and workflow. Use the `ranger` engine and set `importance = "impurity"`. Tune `mtry`, `trees`, and `min_n`. Using the documentation for `rand_forest()`, explain in your own words what each of these hyperparameters represent.
 
 Create a regular grid with 8 levels each. You can choose plausible ranges for each hyperparameter. Note that `mtry` should not be smaller than 1 or larger than 8. **Explain why not. What type of model would `mtry = 8` represent?**
 
+```{r}
+forest <- rand_forest() %>%
+  set_engine("ranger", importance="impurity") %>%
+  set_mode("classification") %>% 
+  set_args(mtry = tune(),trees = tune(), min_n = tune())
+forest
+forest_workflow <- workflow() %>%
+  add_model(forest %>% set_args(mtry = tune(), trees = tune(),
+                                           min_n = tune())) %>%
+  add_recipe(pokemon_recipe)
+#forest_workflow
+param_grid2<-grid_regular(mtry(range = c(1, 8)),
+                          trees(range = c(1,8)),
+                          min_n(range = c(1,8)), 
+                          levels = 8)
+param_grid2
+```
+
+Mtry is number of predictors randomly sampled at each split when creating the tree models. 
+
+Trees is the number of trees. 
+
+Min_n is integer for the minimum number of data points in a node that are required for the node to be split further.
+
+
+
 ### Exercise 6
 
 Specify `roc_auc` as a metric. Tune the model and print an `autoplot()` of the results. What do you observe? What values of the hyperparameters seem to yield the best performance?
+
+```{r}
+#install.packages("ranger")
+tune_res_forest<-tune_grid(
+  forest_workflow,
+  resamples = pokemon_folds,
+  grid = param_grid2,
+  metrics = metric_set(roc_auc)
+)
+autoplot(tune_res_forest)
+```
 
 ### Exercise 7
 
