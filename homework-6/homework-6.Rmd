@@ -14,6 +14,9 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE,
 ```
 
 ## Tree-Based Models
+```{r}
+rm(list = ls())
+```
 
 For this assignment, we will continue working with the file `"pokemon.csv"`, found in `/data`. The file is from Kaggle: <https://www.kaggle.com/abcsds/pokemon>.
 
@@ -106,7 +109,7 @@ tree_spec<-decision_tree() %>%
 class_tree_spec<-tree_spec %>%
   set_mode("classification")
 
-tree_workflow<-workflow() %>%
+tree_workflow <-workflow() %>%
   add_model(class_tree_spec %>% set_args(cost_complexity=tune())) %>%
   add_recipe(pokemon_recipe)
 
@@ -202,17 +205,25 @@ autoplot(tune_res_forest)
 What is the `roc_auc` of your best-performing random forest model on the folds? *Hint: Use `collect_metrics()` and `arrange()`.*
 
 ```{r}
-collect_metrics(tune_res_forest)
-arrange(tune_res_forest)
+collect_metrics(tune_res_forest) %>% 
+  arrange(desc(mean))  
 best_complexity2<-select_best(tune_res_forest)
 best_complexity2
 ```
+The best is Preprocessor1_Model188 and it has the highest mean 0.7112346.
 
 ### Exercise 8
 
 Create a variable importance plot, using `vip()`, with your best-performing random forest model fit on the *training* set.
 
 Which variables were most useful? Which were least useful? Are these results what you expected, or not?
+
+```{r}
+class_tree_final_fit %>%
+  pull_workflow_fit() %>%
+  vip()
+```
+Sp_atk is the most useful. Generation is the least useful. Yes, it makes sense since I would care about the sp_atk the most when I play games but not care about generation too much.
 
 ### Exercise 9
 
@@ -222,6 +233,32 @@ What do you observe?
 
 What is the `roc_auc` of your best-performing boosted tree model on the folds? *Hint: Use `collect_metrics()` and `arrange()`.*
 
+```{r}
+boost_spec <- boost_tree(trees = c(10,2000), tree_depth = 4) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+param_grid_boost <- grid_regular(trees(range = c(10, 2000)),  levels = 10)
+
+boost_workflow <- workflow() %>%
+  add_model(boost_spec %>% set_args(trees = tune())) %>%
+  add_recipe(pokemon_recipe)
+
+tune_res_boost <- tune_grid(
+  boost_workflow,
+  resamples = pokemon_folds,
+  grid = param_grid_boost,
+  metrics = metric_set(roc_auc)
+)
+
+autoplot(tune_res_boost)
+collect_metrics(tune_res_boost)
+arrange(tune_res_boost)
+best_complexity3<-select_best(tune_res_boost)
+best_complexity3
+```
+I obeserve that there is a big increase from 0 to 250 trees for aoc_auc. But after 250 trees, the ruc_auc is around 0.715.
+The best model is model 3, its roc_auc is 0.7172618.
+
 ### Exercise 10
 
 Display a table of the three ROC AUC values for your best-performing pruned tree, random forest, and boosted tree models. Which performed best on the folds? Select the best of the three and use `select_best()`, `finalize_workflow()`, and `fit()` to fit it to the *testing* set. 
@@ -229,6 +266,53 @@ Display a table of the three ROC AUC values for your best-performing pruned tree
 Print the AUC value of your best-performing model on the testing set. Print the ROC curves. Finally, create and visualize a confusion matrix heat map.
 
 Which classes was your model most accurate at predicting? Which was it worst at?
+
+```{r}
+library(pROC)
+# pruned tree
+best1 <- select_best(tune_res)
+tree_final <- finalize_workflow(tree_workflow, best1)
+tree_final_fit <- fit(class_tree_final, data = pokemon_test)
+
+# random forest
+best2 <- select_best(tune_res_forest)
+random_forest_tree_final <- finalize_workflow(forest_workflow, best2)
+rf_fit <- fit(rand_tree_final, data = pokemon_test)
+
+# boosted tree
+best3 <- select_best(tune_res_boost)
+rand_tree_final <- finalize_workflow(boost_workflow, best3)
+boost_fit <- fit(rand_tree_final, data = pokemon_test)
+
+# auc values
+
+
+# ROC curve
+
+
+# roc_auc
+tree_fit <- augment(tree_final_fit, 
+                         new_data = pokemon_test, 
+                         type = "prob") %>% 
+  mutate(type_1 = as.factor(type_1)) %>% 
+  roc_auc(truth = type_1, .pred_Bug:.pred_Water)
+
+rand_tree_fit <- augment(rf_fit, 
+                         new_data = pokemon_test, 
+                         type = "prob") %>% 
+  mutate(type_1 = as.factor(type_1)) %>% 
+  roc_auc(truth = type_1, .pred_Bug:.pred_Water)
+
+boost_model_fit <- augment(boost_fit, 
+                         new_data = pokemon_test, 
+                         type = "prob") %>% 
+  mutate(type_1 = as.factor(type_1)) %>% 
+  roc_auc(truth = type_1, .pred_Bug:.pred_Water)
+
+matrix_rocauc <- bind_rows("ROC_AUC for the Best pruned tree model"= deci_tree_fit,"ROC_AUC for the Best Random Forest model"=rand_tree_fit,"ROC_AUC for the Best Boosted model"=boost_model_fit,.id="model")
+matrix_rocauc
+```
+The boosted model is the best one while the pruned tree model is the worst one.
 
 ## For 231 Students
 
