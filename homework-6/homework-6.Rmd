@@ -133,8 +133,8 @@ What is the `roc_auc` of your best-performing pruned decision tree on the folds?
 ```{r}
 collect_metrics(tune_res)
 arrange(tune_res)
-best <- select_best(tune_res)
-best
+best1 <- select_best(tune_res)
+best1
 ```
 My best-performing pruned decision is model 5, the mean of roc_au is 0.6160667 which is the highest.
 
@@ -207,10 +207,10 @@ What is the `roc_auc` of your best-performing random forest model on the folds? 
 ```{r}
 collect_metrics(tune_res_forest) %>% 
   arrange(desc(mean))  
-best_complexity2<-select_best(tune_res_forest)
-best_complexity2
+best2<-select_best(tune_res_forest)
+best2
 ```
-The best is Preprocessor1_Model188 and it has the highest mean 0.7112346.
+The best is Preprocessor1_Model060 and it has the highest mean 0.7155890.
 
 ### Exercise 8
 
@@ -253,8 +253,8 @@ tune_res_boost <- tune_grid(
 autoplot(tune_res_boost)
 collect_metrics(tune_res_boost)
 arrange(tune_res_boost)
-best_complexity3<-select_best(tune_res_boost)
-best_complexity3
+best3<-select_best(tune_res_boost)
+best3
 ```
 I obeserve that there is a big increase from 0 to 250 trees for aoc_auc. But after 250 trees, the ruc_auc is around 0.715.
 The best model is model 3, its roc_auc is 0.7172618.
@@ -270,24 +270,18 @@ Which classes was your model most accurate at predicting? Which was it worst at?
 ```{r}
 library(pROC)
 # pruned tree
-best1 <- select_best(tune_res)
 tree_final <- finalize_workflow(tree_workflow, best1)
 tree_final_fit <- fit(class_tree_final, data = pokemon_test)
 
 # random forest
-best2 <- select_best(tune_res_forest)
 random_forest_tree_final <- finalize_workflow(forest_workflow, best2)
-rf_fit <- fit(rand_tree_final, data = pokemon_test)
+rf_fit <- fit(random_forest_tree_final, data = pokemon_test)
 
 # boosted tree
-best3 <- select_best(tune_res_boost)
 rand_tree_final <- finalize_workflow(boost_workflow, best3)
 boost_fit <- fit(rand_tree_final, data = pokemon_test)
 
-# auc values
-
-
-# ROC curve
+# auc and ROC curve
 
 
 # roc_auc
@@ -309,7 +303,7 @@ boost_model_fit <- augment(boost_fit,
   mutate(type_1 = as.factor(type_1)) %>% 
   roc_auc(truth = type_1, .pred_Bug:.pred_Water)
 
-matrix_rocauc <- bind_rows("ROC_AUC for the Best pruned tree model"= deci_tree_fit,"ROC_AUC for the Best Random Forest model"=rand_tree_fit,"ROC_AUC for the Best Boosted model"=boost_model_fit,.id="model")
+matrix_rocauc <- bind_rows("ROC_AUC for the Best pruned tree model"= tree_fit,"ROC_AUC for the Best Random Forest model"=rand_tree_fit,"ROC_AUC for the Best Boosted model"=boost_model_fit,.id="model")
 matrix_rocauc
 ```
 The boosted model is the best one while the pruned tree model is the worst one.
