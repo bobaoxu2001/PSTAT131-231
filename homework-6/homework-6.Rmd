@@ -144,7 +144,7 @@ Using `rpart.plot`, fit and visualize your best-performing pruned decision tree 
 
 ```{r}
 library(rpart.plot)
-class_tree_final <- finalize_workflow(tree_workflow,best)
+class_tree_final <- finalize_workflow(tree_workflow,best1)
 class_tree_final_fit<-fit(class_tree_final,data=pokemon_train)
 class_tree_final_fit %>%
   extract_fit_engine() %>%
@@ -312,4 +312,52 @@ The boosted model is the best one while the pruned tree model is the worst one.
 
 ### Exercise 11
 
-Using the `abalone.txt` data from previous assignments, fit and tune a random forest model to predict `age`. Use stratified cross-validation and select ranges for `mtry`, `min_n`, and `trees`. Present your results. What was the model's RMSE on your testing set?
+Using the `abalonelonelone.txt` data from previous assignments, fit and tune a random forest model to predict `age`. Use stratified cross-validation and select ranges for `mtry`, `min_n`, and `trees`. Present your results. What was the model's RMSE on your testing set?
+
+```{r}
+# Reading the data, tidying the data and setting the recipe as in homework-2
+abalone <- read.csv("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/homework-6/data/abalone.csv")
+abalone$age <- abalone$ring+1.5
+set.seed(1888)
+abalone_not_ring <- subset(abalone, select = -c(rings))
+split <- initial_split(abalone_not_ring, prop = 0.8,strata = diameter)
+abalone_train <- training(split) 
+abalone_test <- testing(split) 
+abalone_folds <- vfold_cv(abalone_train,v=5)
+cat_dummy <- recipe(age ~ ., data = abalone_train) %>% 
+  step_dummy(all_nominal_predictors(),-all_outcomes()) %>% 
+  step_normalize(all_predictors()) %>% 
+  step_interact(terms = ~ starts_with("type"):shucked_weight) %>%   
+  step_interact(terms = ~ longest_shell:diameter) %>%   
+  step_interact(terms = ~ shucked_weight:shell_weight)
+
+# Setting up the random forest workflow
+abalone_bagging_spec <- rand_forest(mtry = .cols()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("regression") %>% 
+  set_args(mtry = tune(),trees = tune(), min_n = tune())
+abalone_rand_tree_wf <- workflow() %>%
+  add_recipe(cat_dummy) %>%
+  add_model(abalone_bagging_spec)
+abalone_grid <- grid_regular(mtry(range = c(1, 8)),trees(range = c(0, 8)), min_n(range = c(0, 4)),levels = 8)
+
+# Set up tuning
+abalone_tune_res_rand <- tune_grid(
+  object = abalone_rand_tree_wf, 
+  resamples = abalone_folds, 
+  grid = abalone_grid ,
+  metrics = metric_set(... = rmse)
+)
+
+best <- select_best(abalone_tune_res_rand)
+abalone_rand_tree_final <- finalize_workflow(abalone_rand_tree_wf, best)
+abalone_fit <- fit(abalone_rand_tree_final, data = abalone_train)
+
+abalone_metrics <- metric_set(rmse, rsq, mae)
+abalone_test_predict <- predict(abalone_fit,abalone_test %>% select(-age))
+
+#abalone_train_res and test
+abalone_test_res <- bind_cols(abalone_test_predict, abalone_test %>% select(age))
+abalone_metrics(abalone_test_res, truth = age, estimate = .pred)
+```
+The rmse is 2.1898278.
