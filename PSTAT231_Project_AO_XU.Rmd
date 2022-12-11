@@ -14,18 +14,131 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library(klaR) # for naive bayes
 library(tidyverse)
 library(tidymodels)
-library(corrplot)
-library(discrim)
-library(poissonreg)
+library(janitor)
+library(ggplot2)
+library(dbplyr)
 library(corrr)
+library(magrittr)
+library(ISLR)
+library(ISLR2)
+library(klaR)
+library(rpart.plot)
+library(glmnet)
+library(randomForest)
+library(xgboost)
+library(class)
+library(kernlab)
+library(stringr)
+library(purrr)
+library(corrplot)
 tidymodels_prefer()
+```
 
+```{r}
 set.seed(3435) # can be any number
 
-book <- read_csv(file = "final_book_dataset_kaggle.csv") 
+book <- read_csv(file = "final_book_dataset_kaggle.csv") %>%
+  na.omit()
+
 book
+```
+Clean names
+```{r}
+book<-book %>% 
+  clean_names()
+```
+
+```{r}
+book<-book %>%
+  select(-title,-author,-language,-publisher,-link,-isbn_13,-complete_link) %>%
+  mutate(star = star5 + star4 + star3 + star2 + star1) 
+```
+```{r}
+#book <- book %>%
+  #mutate(star = 1*star5 + 0.8*star4 + 0.6*star3 + 0.4*star2 + 0.2*star1) 
+```
+
+```{r}
+book
+```
+
+```{r}
+book$pages <- as.factor(book$pages)
+book$avg_reviews <- as.numeric(book$avg_reviews)
+book$n_reviews <- as.factor(book$n_reviews)
+book$weight <- as.factor(book$weight)
+book$price <- as.factor(book$price)
+
+```
+
+```{r}
+book_split <- book %>% 
+  initial_split(strata = price, prop = 0.7)
+book_train <- training(book_split)
+book_test <- testing(book_split)
+dim(book_train)
+```
+
+```{r}
+dim(book_test)
+```
+```{r}
+book_train %>%
+  ggplot(aes(x=pages, y=price)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+
+```{r}
+book_train %>%
+  ggplot(aes(x=avg_reviews, y=price)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+
+```{r}
+book_train %>% 
+  ggplot(aes(x = price)) +
+  geom_bar()
+```
+
+```{r}
+book_train %>% 
+  select(is.numeric,) %>% 
+  cor(use = "complete.obs") %>% 
+  corrplot(type = "lower", diag = FALSE)
+```
+```{r}
+book_recipe <- recipe(price ~ pages + avg_reviews + n_reviews + 
+                           star5, book_train) %>% 
+  step_impute_linear(avg_reviews, impute_with = imp_vars(star5)) %>% 
+  # choice of predictors to impute with is up to you
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact(~ starts_with("pages"):avg_reviews + avg_reviews:n_review)
+```
+
+```{r}
+log_reg <- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+
+log_wkflow <- workflow() %>% 
+  add_model(log_reg) %>% 
+  add_recipe(book_recipe)
+
+log_fit <- fit(log_wkflow, book_train)
+```
+```{r}
+qda_mod <- discrim_quad() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+qda_wkflow <- workflow() %>% 
+  add_model(qda_mod) %>% 
+  add_recipe(book_recipe)
+
+qda_fit <- fit(qda_wkflow, book_train)
 ```
 
