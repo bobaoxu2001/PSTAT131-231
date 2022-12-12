@@ -13,23 +13,30 @@ output:
 
 # 1. Introduction
 
+The Iris dataset, which is also available on the UCI Machine Learning Repository, was utilized in R.A. Fisher's 1936 landmark paper The Use of Multiple Measurements in Taxonomic Problems.
+
+It contains information about each flower's characteristics as well as three iris species with 50 samples each. One flower species can be linearly divided into the other two, however the other two cannot be linearly divided into one another.
+
 Building a machine learning algorithm that can forecast the iris species is the goal of this project. To produce the best accurate model for the classification task, we will use data from Kaggle and employ a number of strategies. We collect the data set from kaggle.
+
 
 ## 1.1 What is Iris?
 
-Iris is a genus of flowering plants with 310 recognized species with colorful blooms. Iris is both the common name and the scientific name for all species of Iris, as well as some species from other closely related genera. Some species go by the common name "flags," and the plants of the subgenus Scorpiris are sometimes referred to as "junos," especially in gardening. It is a well-liked garden bloom.
+Iris is a flowering plant genus that includes 310 recognized species and colorful blooms. The common word "iris" is frequently used to refer to all Iris species as well as several species from other closely related genera in addition to being their scientific name. Some species are referred to as "flags", while the plants belonging to the subgenus Scorpiris are sometimes called "junos", especially in gardening. It is a well-known garden flower.
 
 In our data set, there are three kinds of species - Iris-setosa, Iris-versicolor and Iris-virginica.
 
 ## 1.2 Why is this model relevant?
 
-It can predict the species of iris from the data about widths and lengths about sepal and petal.
+It can predict the species of iris from the data about widths and lengths of sepal and petal.
 
 # 2. Data collection and cleaning
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = F)
 ```
+
+In this part, we will fo library loading, data collection, and data cleaning.
 
 ## 2.1 Library Loading
 
@@ -57,7 +64,7 @@ library(corrplot)
 
 ## 2.2 Loading and Exploring Raw Data
 
-For this part, the raw data is shown here. We clean the data set by setting species from "Iris-setosa", "Iris-versicolor" and "Iris-virginica" to 0, 1 and 2.
+For this part, the raw data is shown here. We clean the data set by setting species from "Iris-setosa", "Iris-versicolor" and "Iris-virginica" to 0, 1 and 2. Also, we use clean_names to convert all letters to lower cases.
 
 ```{r,class.source = "fold-show"}
 set.seed(3435) # can be any number
@@ -75,7 +82,7 @@ iris
 
 ## 2.3 Splitting the data into training set and testing set 
 
-We split the data into training set and testing set for 0.8.
+We split the data into training set by 0.8 and testing set by 0.2.
 
 ```{r,class.source = "fold-show"}
 iris_split <- iris %>% 
@@ -98,7 +105,8 @@ This is about the correlation between width and lengths of sepal and petal of ir
 
 ```{r,class.source = "fold-show"}
 iris_numer <- iris %>%  
-  select_if(is.numeric)
+  select_if(is.numeric) %>%
+  select(-id)
 
 iris_cor <- cor(iris_numer)
 iris_cor_plot <- corrplot(iris_cor, 
@@ -108,7 +116,7 @@ iris_cor_plot <- corrplot(iris_cor,
 
 ## 3.2 Relationship between sepal length and species
 
-From this part we could find that if sepal length is lower, than it probably be Iris-setosa; if sepal length is higher, than it probably be Iris-virginica; Otherwise, it probably would be Iris-versicolor.
+From this part we could find that if sepal length is between 4-6 cm, than it probably be Iris-setosa; if sepal length is between 6-8 cm, than it probably be Iris-virginica; If sepal length is between 5 and 7 cm, then it probably would be Iris-versicolor.
 
 ```{r,class.source = "fold-show"}
 iris_train %>%
@@ -118,7 +126,7 @@ iris_train %>%
 ```
 ## 3.3 Relationship between sepal width and species
 
-From this part we could find that if sepal wid is higher, than it probably be Iris-setosa or Iris-versicolor.
+From this part we could find that if sepal width is more than 3.5, than it probably be Iris-setosa or Iris-versicolor.
 
 ```{r,class.source = "fold-show"}
 iris_train %>%
@@ -129,7 +137,7 @@ iris_train %>%
 
 ## 3.4 Relationship between petal length and species
 
-From this part we could find that if petal length is lower, than it probably be Iris-setosa; if sepal length is higher, than it probably be Iris-virginica; Otherwise, it probably would be Iris-versicolor.
+From this part we could find that if petal length is bewteen 1 and 2 cm, than it probably be Iris-setosa; if sepal length is between 5 and 7 cm, than it probably be Iris-virginica; If petal length is bewteen 3 and 5 cm, it probably would be Iris-versicolor.
 
 ```{r,class.source = "fold-show"}
 iris_train %>%
@@ -140,7 +148,7 @@ iris_train %>%
 
 ## 3.5 Relationship between petal width and species
 
-From this part we could find that if petal width is lower, than it probably be Iris-setosa; if sepal length is higher, than it probably be Iris-virginica; Otherwise, it probably would be Iris-versicolor.
+From this part we could find that if petal width is between 0 and 0.5cm, than it probably be Iris-setosa; if petal width is between 1.5 and 2.5 cm, than it probably be Iris-virginica; If petal width is between 1 and 1.5 cm, then it probably would be Iris-versicolor.
 
 ```{r,class.source = "fold-show"}
 iris_train %>%
@@ -346,10 +354,10 @@ knn_final_fit <- fit(knn_final, data = iris_train)
 We have stored our models in the scripts and we load them. 
 
 ```{r,class.source = "fold-show"}
-load("~/Documents/2022Fall/Pstat131/PSTAT231/lasso.RData")
-load("~/Documents/2022Fall/Pstat131/PSTAT231/boost.RData")
-load("~/Documents/2022Fall/Pstat131/PSTAT231/random_forest.RData")
-load("~/Documents/2022Fall/Pstat131/PSTAT231/knn.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/lasso.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/boost.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/random_forest.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/knn.RData")
 ```
 
 ## 5 Compare Models 
@@ -490,6 +498,7 @@ boost
 random
 knn
 ```
+
 #### 5.5 Plot the graphs of four models roc curve for test set: 
 
 ```{r,class.source = "fold-show"}
