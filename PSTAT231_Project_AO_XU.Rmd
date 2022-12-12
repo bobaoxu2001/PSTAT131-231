@@ -1,0 +1,542 @@
+---
+title: "PSTAT231_Project_AO_XU"
+author: "AO XU"
+date: "2022-12-09"
+output: 
+  html_document:
+      toc: true
+      toc_float: true
+      code_folding: hide
+---
+
+
+
+# 1. Introduction
+
+The Iris dataset, which is also available on the UCI Machine Learning Repository, was utilized in R.A. Fisher's 1936 landmark paper The Use of Multiple Measurements in Taxonomic Problems.
+
+It contains information about each flower's characteristics as well as three iris species with 50 samples each. One flower species can be linearly divided into the other two, however the other two cannot be linearly divided into one another.
+
+Building a machine learning algorithm that can forecast the iris species is the goal of this project. To produce the best accurate model for the classification task, we will use data from Kaggle and employ a number of strategies. We collect the data set from kaggle.
+
+
+## 1.1 What is Iris?
+
+Iris is a flowering plant genus that includes 310 recognized species and colorful blooms. The common word "iris" is frequently used to refer to all Iris species as well as several species from other closely related genera in addition to being their scientific name. Some species are referred to as "flags", while the plants belonging to the subgenus Scorpiris are sometimes called "junos", especially in gardening. It is a well-known garden flower.
+
+In our data set, there are three kinds of species - Iris-setosa, Iris-versicolor and Iris-virginica.
+
+## 1.2 Why is this model relevant?
+
+It can predict the species of iris from the data about widths and lengths of sepal and petal.
+
+# 2. Data collection and cleaning
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = F)
+```
+
+In this part, we will fo library loading, data collection, and data cleaning.
+
+## 2.1 Library Loading
+
+For this part, all libraries which will be used are shown here.
+
+```{r,class.source = "fold-show"}
+library(tidymodels)
+library(discrim)
+library(poissonreg)
+library(corrr)
+tidymodels_prefer()
+suppressMessages(library(tidyquant))
+library(ggplot2)
+library(fitdistrplus)
+library(reshape2)
+library(patchwork)
+library(parallel)
+library(tidyverse)
+library(janitor)
+library(here)
+library(corrr)
+library(kableExtra)
+library(corrplot)
+```
+
+## 2.2 Loading and Exploring Raw Data
+
+For this part, the raw data is shown here. We clean the data set by setting species from "Iris-setosa", "Iris-versicolor" and "Iris-virginica" to 0, 1 and 2. Also, we use clean_names to convert all letters to lower cases.
+
+```{r,class.source = "fold-show"}
+set.seed(3435) # can be any number
+
+iris <- read_csv(file = "iris.csv") %>%
+  na.omit() %>%
+  mutate(Species = case_when(Species == "Iris-setosa" ~ 0, 
+                             Species == "Iris-versicolor" ~ 1,
+                             Species == "Iris-virginica" ~ 2)) %>%
+  clean_names()
+
+iris$species <- as.factor(iris$species)      
+iris
+```
+
+## 2.3 Splitting the data into training set and testing set 
+
+We split the data into training set by 0.8 and testing set by 0.2.
+
+```{r,class.source = "fold-show"}
+iris_split <- iris %>% 
+  initial_split(strata = species, prop = 0.8)
+iris_train <- training(iris_split)
+iris_test <- testing(iris_split)
+```
+
+```{r,class.source = "fold-show"}
+dim(iris_train)
+dim(iris_test)
+```
+
+
+# 3. Explorarotory Data Analysis
+
+## 3.1 Correlation
+
+This is about the correlation between width and lengths of sepal and petal of iris.
+
+```{r,class.source = "fold-show"}
+iris_numer <- iris %>%  
+  select_if(is.numeric) %>%
+  select(-id)
+
+iris_cor <- cor(iris_numer)
+iris_cor_plot <- corrplot(iris_cor, 
+                               order = 'AOE')
+
+```
+
+## 3.2 Relationship between sepal length and species
+
+From this part we could find that if sepal length is between 4-6 cm, than it probably be Iris-setosa; if sepal length is between 6-8 cm, than it probably be Iris-virginica; If sepal length is between 5 and 7 cm, then it probably would be Iris-versicolor.
+
+```{r,class.source = "fold-show"}
+iris_train %>%
+  ggplot(aes(x=sepal_length_cm, y=species)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+## 3.3 Relationship between sepal width and species
+
+From this part we could find that if sepal width is more than 3.5, than it probably be Iris-setosa or Iris-versicolor.
+
+```{r,class.source = "fold-show"}
+iris_train %>%
+  ggplot(aes(x=sepal_width_cm, y=species)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+
+## 3.4 Relationship between petal length and species
+
+From this part we could find that if petal length is bewteen 1 and 2 cm, than it probably be Iris-setosa; if sepal length is between 5 and 7 cm, than it probably be Iris-virginica; If petal length is bewteen 3 and 5 cm, it probably would be Iris-versicolor.
+
+```{r,class.source = "fold-show"}
+iris_train %>%
+  ggplot(aes(x=petal_length_cm, y=species)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+
+## 3.5 Relationship between petal width and species
+
+From this part we could find that if petal width is between 0 and 0.5cm, than it probably be Iris-setosa; if petal width is between 1.5 and 2.5 cm, than it probably be Iris-virginica; If petal width is between 1 and 1.5 cm, then it probably would be Iris-versicolor.
+
+```{r,class.source = "fold-show"}
+iris_train %>%
+  ggplot(aes(x=petal_width_cm, y=species)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(method = 'lm', formula = 'y ~ x',colour = "navajowhite")
+```
+
+## 3.6 Distribution of Species
+
+This is our histograms of our three species, and we could find that they are equally distributed in our dataset.
+
+```{r,class.source = "fold-show"}
+iris_train %>% 
+  ggplot(aes(x =species)) +
+  geom_bar()
+```
+
+# 4. Model Fitting
+
+## 4.1 Create Recipes
+
+For this part, we create recipes.
+
+```{r,class.source = "fold-show"}
+iris_recipe <- 
+  recipe(species ~ sepal_length_cm + sepal_width_cm + petal_length_cm + petal_width_cm, 
+         data = iris) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_center(all_predictors()) %>%  
+  step_scale(all_predictors())
+```
+
+## 4.2 Set Folds
+
+For this part, we create folds and set k to be 5..
+
+```{r,class.source = "fold-show"}
+iris_folds <- vfold_cv(iris_train, strata = species, 
+                          v = 5)
+```
+
+## 4.3 Construct Models
+
+In this part, we construct lasso boost, random_forest and knn to fit our data.
+After that we storage them in environment by creating srcipts individually.
+
+```{r, class.source = "fold-show", eval = F}
+library(tidymodels)
+library(discrim)
+library(poissonreg)
+library(corrr)
+tidymodels_prefer()
+suppressMessages(library(tidyquant))
+library(ggplot2)
+library(fitdistrplus)
+library(reshape2)
+library(patchwork)
+library(parallel)
+library(kableExtra)
+
+set.seed(3435) # can be any number
+
+iris <- read_csv(file = "iris.csv") %>%
+  na.omit() %>%
+  mutate(Species = case_when(Species == "Iris-setosa" ~ 0, 
+                             Species == "Iris-versicolor" ~ 1,
+                             Species == "Iris-virginica" ~ 2)) %>%
+  clean_names()
+iris$species <- as.factor(iris$species)   
+
+iris_split <- iris %>% 
+  initial_split(strata = species, prop = 0.8)
+iris_train <- training(iris_split)
+iris_test <- testing(iris_split)
+
+iris_recipe <- 
+  recipe(species ~ sepal_length_cm + sepal_width_cm + petal_length_cm + petal_width_cm, 
+         data = iris) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_center(all_predictors()) %>%  
+  step_scale(all_predictors())
+
+iris_folds <- vfold_cv(iris_train, strata = species, 
+                       v = 5)
+
+iris_lasso_spec <- multinom_reg(penalty = tune(), 
+                                mixture = tune()) %>% 
+  set_mode("classification") %>% 
+  set_engine("glmnet")
+
+iris_workflow <- workflow() %>% 
+  add_recipe(iris_recipe) %>% 
+  add_model(iris_lasso_spec)
+
+iris_grid <- grid_regular(penalty(range = c(-5, 5)), 
+                          mixture(range = c(0, 1)), levels = 10)
+
+tune_res <- tune_grid(
+  iris_workflow,
+  resamples = iris_folds, 
+  grid = iris_grid
+)
+
+bestpenalty <- select_best(tune_res,metrix="roc_auc")
+bestpenalty
+
+lasso_final<-finalize_workflow(iris_workflow,bestpenalty)
+
+lasso_final_fit <- fit(lasso_final, data = iris_train)
+
+boost_spec <- boost_tree(trees = c(1,10), tree_depth = 4) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+param_grid_boost <- grid_regular(trees(range = c(1, 10)),  levels = 5)
+
+boost_workflow <- workflow() %>%
+  add_model(boost_spec %>% set_args(trees = tune())) %>%
+  add_recipe(iris_recipe)
+
+tune_res_boost <- tune_grid(
+  boost_workflow,
+  resamples = iris_folds,
+  grid = param_grid_boost,
+  metrics = metric_set(roc_auc)
+)
+
+boost_preformance <- collect_metrics(tune_res_boost)
+
+final_boost <- select_best(tune_res_boost, metric = "roc_auc")
+
+final_workflow_boost <- finalize_workflow(boost_workflow, final_boost)
+
+final_fit_boost <- fit(final_workflow_boost, data = iris_train)
+
+forest <- rand_forest() %>%
+  set_engine("ranger", importance="impurity") %>%
+  set_mode("classification") %>% 
+  set_args(mtry = tune(),trees = tune(), min_n = tune())
+forest
+
+forest_workflow <- workflow() %>%
+  add_model(forest %>% set_args(mtry = tune(), trees = tune(),
+                                min_n = tune())) %>%
+  add_recipe(iris_recipe)
+#forest_workflow
+param_grid2<-grid_regular(mtry(range = c(1, 4)),
+                          trees(range = c(1,4)),
+                          min_n(range = c(1,4)), 
+                          levels = 4)
+param_grid2
+
+#install.packages("ranger")
+tune_res_forest<-tune_grid(
+  forest_workflow,
+  resamples = iris_folds,
+  grid = param_grid2,
+  metrics = metric_set(roc_auc)
+)
+
+best_random<-select_best(tune_res_forest,metrix="roc_auc")
+best_random
+
+random_final<-finalize_workflow(forest_workflow, best_random)
+
+random_final_fit <- fit(random_final, data = iris_train)
+
+knn_spec <-nearest_neighbor() %>%
+  set_mode("classification") %>%
+  set_engine("kknn") %>% 
+  set_args(neighbors = tune())
+
+translate(knn_spec)
+
+knn_workflow <- workflow() %>%
+  add_recipe(iris_recipe) %>%
+  add_model(knn_spec)
+
+knn_params <- parameters(knn_spec)
+
+knn_grid <- grid_regular(knn_params, levels = 5)
+
+tune_res_knn <- tune_grid(
+  knn_workflow,
+  resamples = iris_folds,
+  grid = knn_grid
+)
+
+autoplot(tune_res_knn)
+
+# knn_roc <- collect_metrics(tune_res_knn) %>% 
+  # dplyr::select(.metric, mean, std_err)
+
+# knn_roc
+
+bestknn <- select_best(tune_res_knn,metrix="roc_auc")
+bestknn
+
+knn_final <- finalize_workflow(knn_workflow, bestknn)
+
+knn_final_fit <- fit(knn_final, data = iris_train)
+```
+We have stored our models in the scripts and we load them. 
+
+```{r,class.source = "fold-show"}
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/lasso.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/boost.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/random_forest.RData")
+load("/Users/xuao/Documents/2022Fall/Pstat131/PSTAT231/final_project_aoxu/knn.RData")
+```
+
+## 5 Compare Models 
+
+## 5.1 Autoplots
+
+#### Plot of Lasso
+```{r,class.source = "fold-show"}
+autoplot(tune_res)
+```
+
+#### Plot of Boost Trees
+```{r,class.source = "fold-show"}
+autoplot(tune_res_boost)
+```
+
+#### Plot of Random Forests
+
+```{r,class.source = "fold-show"}
+autoplot(tune_res_forest)
+```
+
+#### Plot of knn
+
+```{r,class.source = "fold-show"}
+autoplot(tune_res_knn)
+```
+## 5.2 Compare Accuracies of Selected Models
+
+
+```{r,class.source = "fold-show"}
+tune_lasso_roc <- augment(lasso_final_fit, new_data = iris_train) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+tune_boost_roc <- augment(final_fit_boost, new_data = iris_train) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+tune_rand_roc <- augment(random_final_fit, new_data = iris_train) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+tune_knn_roc <- augment(knn_final_fit, new_data = iris_train) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+model_roc <- c(tune_lasso_roc$.estimate,
+                tune_boost_roc$.estimate,
+                tune_rand_roc$.estimate,
+                tune_knn_roc$.estimate)
+
+iris_model_names <- c(
+            "lasso",
+            "boosted_tree",
+            "random_forest",
+            "knn")
+model_results <- tibble(Model = iris_model_names,
+                        roc_auc = model_roc)
+
+modelresults <- model_results %>% 
+  arrange(-model_roc)
+
+modelresults
+```
+
+We could find that lasso performs the best considering to train sets since it has 0.9991667	for roc_auc.
+
+## 5.3 Best Model Results
+
+```{r,class.source = "fold-show"}
+#lasso 
+lasso_pre <- predict(lasso_final_fit,new_data=iris_test,type="class")
+
+auc_test_lasso<-augment(lasso_final_fit,new_data=iris_test) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+acc_test_lasso<-augment(lasso_final_fit,new_data=iris_test) %>%
+  accuracy(truth=species,estimate=.pred_class)
+
+roc_lasso_curve <- augment(lasso_final_fit,new_data=iris_test) %>%
+  roc_curve(species,.pred_0,.pred_1, .pred_2)
+
+lasso <- autoplot(roc_lasso_curve)
+
+#boosted tree 
+boost_pre <- predict(final_fit_boost,new_data=iris_test,type="class")
+
+auc_test_boost<-augment(final_fit_boost,new_data=iris_test) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+acc_test_boost<-augment(final_fit_boost,new_data=iris_test) %>%
+  accuracy(truth=species,estimate=.pred_class)
+
+roc_boost_curve <- augment(final_fit_boost,new_data=iris_test) %>%
+  roc_curve(species,.pred_0,.pred_1, .pred_2) 
+
+boost <- autoplot(roc_boost_curve)
+
+#random forest
+rand_pre <- predict(random_final_fit,new_data=iris_test,type="class")
+
+auc_test_rand<-augment(random_final_fit,new_data=iris_test) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+acc_test_rand<-augment(random_final_fit,new_data=iris_test) %>%
+  accuracy(truth=species,estimate=.pred_class)
+
+roc_rand_curve <- augment(random_final_fit,new_data=iris_test) %>%
+  roc_curve(species,.pred_0,.pred_1, .pred_2)  
+
+random <- autoplot(roc_rand_curve)
+
+#knn
+knn_pre <- predict(knn_final_fit,new_data=iris_test,type="class")
+
+auc_test_knn<-augment(knn_final_fit,new_data=iris_test) %>%
+  roc_auc(species,.pred_0,.pred_1, .pred_2) %>% 
+  select(.estimate)
+
+acc_test_knn<-augment(knn_final_fit,new_data=iris_test) %>%
+  accuracy(truth=species,estimate=.pred_class)
+
+roc_knn_curve <- augment(knn_final_fit,new_data=iris_test) %>%
+  roc_curve(species,.pred_0,.pred_1, .pred_2) 
+
+knn <- autoplot(roc_knn_curve)
+```
+
+#### 5.4 Plot the graphs of four models roc curve: 
+
+```{r,class.source = "fold-show"}
+lasso
+boost
+random
+knn
+```
+
+#### 5.5 Plot the graphs of four models roc curve for test set: 
+
+```{r,class.source = "fold-show"}
+result_auc <- c(auc_test_lasso$.estimate,
+                auc_test_boost$.estimate,
+                auc_test_rand$.estimate,
+                auc_test_knn$.estimate)
+
+iris_mod_names <- c(
+            "lasso",
+            "boost",
+            "random forest",
+            "knn")
+model_test <- tibble(Model = iris_mod_names,
+                        roc_auc = result_auc)
+
+model_test
+```
+
+We could find that lasso performs the best considering to testing sets since it has 0.9991667	for roc_auc.
+
+#### 5.6 Plot the graphs of four models acc curve for test set: 
+```{r,class.source = "fold-show"}
+result_acc <- c(acc_test_lasso$.estimate,
+                acc_test_boost$.estimate,
+                acc_test_rand$.estimate,
+                acc_test_knn$.estimate)
+
+iris_acc_test <- tibble(Model = iris_mod_names,
+                        Accuracy = result_acc)
+
+iris_acc_test
+```
+
+We could find that lasso and random forest performs the best considering to test sets since it has 0.9333333for acc.
+
+# 6.Conclusion
+
+After constructing lasso regression, boost tree, random-forest and knn to the train data sets and test data sets, we decide to use lasso regression to fit our iris data. That's because lasso regression preforms the best both in training sets and test sets. 
+
+
